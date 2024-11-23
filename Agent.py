@@ -7,7 +7,7 @@ class GuardAgent(ap.Agent):
     Definition of the robot agent for the bunker environment.
     """
     
-    def setup(self, grid_size, position=(0, 0), isCarrying=False):
+    def setup(self):
         self.alertA = 0 #Puerta abierta (0)/ Puerta cerrada (1)
         self.alertB = 0 #Puerta abierta (0)/ Puerta cerrada (1)
         self.droneAlert = 0 #Dron no ha visto algo (0)/Dron vio algo (1)
@@ -67,7 +67,17 @@ class GuardAgent(ap.Agent):
         self.action(action, environment)
 
     
-    def shoot(self, environment=None, target=None):
+    def orderShot(self, environment=None, target=None):
+        #Orders drone to shoot current 
+        pass
+    
+    def openDoor(self, environment, door=None):
+        #Self explanatory xd
+        pass
+
+    def callDrone(self,environment, zone=None):
+
+        #Call drone to certain zone
         pass
 
     # Actualización de las reglas con acceso correcto a las percepciones
@@ -82,7 +92,30 @@ class GuardAgent(ap.Agent):
     def rule_3(self):
         #Regla 3: 
         pass
+    
+    def rule_4(self):
+        #Regla 3: 
+        pass
 
+    def rule_5(self):
+        #Regla 3: 
+        pass
+
+    def rule_6(self):
+        #Regla 3: 
+        pass
+
+    def rule_7(self):
+        #Regla 3: 
+        pass
+
+    def rule_8(self):
+        #Regla 3: 
+        pass
+    
+    def rule_9(self):
+        #Regla 3: 
+        pass
     
 
 class DroneAgent(ap.Agent):
@@ -194,9 +227,6 @@ class CameraAgent(ap.Agent):
         self.see(environment)
         action = self.next()
         self.action(action, environment)
-
-
-
 
 
 class BunkerModel(ap.Model):
