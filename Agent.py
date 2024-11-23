@@ -12,9 +12,7 @@ class GuardAgent(ap.Agent):
         self.alertB = 0 #Puerta abierta (0)/ Puerta cerrada (1)
         self.droneAlert = 0 #Dron no ha visto algo (0)/Dron vio algo (1)
         self.droneState = "f" #f: flying, a: está en A, b: está en B, l: está aterrizado
-        self.pathState = False #O/C: Open/Close
-
-        
+        self.pathState = False #O/C: Open/Close        
 
     def see(self, environment, message):  # environment and message are passed in
         """Updates the robot's perception based on the environment."""
@@ -38,8 +36,7 @@ class GuardAgent(ap.Agent):
 
         except ValueError:
             print(f"Agent {self.id}: Invalid values or message format: {message}")
-            
-            
+                  
     def next(self):
         """Decides the next action based on the rules and perceptions."""
         rules = [
@@ -65,8 +62,8 @@ class GuardAgent(ap.Agent):
         self.see(environment)
         action = self.next()
         self.action(action, environment)
-
-    
+  
+    #Funciones propias del agente
     def orderShot(self, environment=None, target=None):
         #Orders drone to shoot current 
         pass
@@ -117,6 +114,7 @@ class GuardAgent(ap.Agent):
         #Regla 3: 
         pass
     
+
 
 class DroneAgent(ap.Agent):
     """
@@ -172,6 +170,20 @@ class DroneAgent(ap.Agent):
         self.see(environment)
         action = self.next()
         self.action(action, environment)
+
+    def relocate(self, environment):
+        #Function to call the drone to a certain position
+        pass
+    
+    def landing(self, environment):
+        #Function to land the drone
+        pass
+
+    def vigilance(self, environment):
+        #Function to send the drone to its standard routine
+        pass
+
+
 
 
 class CameraAgent(ap.Agent):
