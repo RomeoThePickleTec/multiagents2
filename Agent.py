@@ -198,9 +198,6 @@ class DroneAgent(ap.Agent):
         #Function to send the drone to its standard routine
         pass
 
-
-
-
 class CameraAgent(ap.Agent):
     """
     Definition of the robot agent for the bunker environment.
