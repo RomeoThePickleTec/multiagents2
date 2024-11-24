@@ -12,7 +12,7 @@ class GuardAgent(ap.Agent):
         self.alertB = 0 #Puerta abierta (0)/ Puerta cerrada (1)
         self.droneAlert = 0 #Dron no ha visto algo (0)/Dron vio algo (1)
         self.droneState = "f" #f: flying, a: está en A, b: está en B, l: está aterrizado
-        self.pathState = False #O/C: Open/Close        
+        self.pathState = "O" #O/C: Open/Close        
 
     def see(self, environment, message):  # environment and message are passed in
         """Updates the robot's perception based on the environment."""
@@ -64,34 +64,70 @@ class GuardAgent(ap.Agent):
         self.action(action, environment)
   
     #Funciones propias del agente
-    def orderShot(self, environment=None, target=None):
+    def orderShot(self, environment=None):
         #Orders drone to shoot current 
-        pass
+        print(f"Ordering Drone to shoot current target")
     
-    def openDoor(self, environment, door=None):
-        #Self explanatory xd
-        pass
+    def operateDoorA(self, environment):
+        #Operate door based on values obtained from Unity
+        state = self.alertA
+        if state == 0:
+            print("Opening door A")
+            
+        elif state == 1:
+            print("Closing door A")
+    
+    def operateDoorB(self, environment, state=None):
+        #Operate door based on values obtained from Unity
+        state = self.alertB
+        if state == 0:
+            print("Opening door B")
+            
+        elif state == 1:
+            print("Closing door B")
+        
 
-    def callDrone(self,environment, zone=None):
-
+    def callDrone(self,environment):
+        #Action is defined from self.droneState
         #Call drone to certain zone
-        pass
+        action = self.droneState
+
+        if action == "a" or action == "b":
+            print(f"Instructing drone to fly to: {action}")
+
+        elif action == "f":
+            print(f"Commanding drone to patrol")
+
+        elif action == "l":
+            print(f"Landing drone in current position")
+
+
+    def lockdown(self, environment=None):
+        self.alertA = 1
+        self.alertB = 1
+        self.pathState = "C"
+        
 
     # Actualización de las reglas con acceso correcto a las percepciones
-    def rule_1(self):
-        # Regla 1: Cambia estado puerta A
-        pass
+    def rule_1(self, zone=None):
+        #Regla 1: Cierre total de las instalaciones
+
+        return self.lockdown
+        
+        
 
     def rule_2(self):
-        # Regla 2: Cambia estado puerta B
-        pass
+        # Regla 1: Cambia estado de puerta A
+        return self.operateDoorA
+        
     
     def rule_3(self):
-        #Regla 3: 
-        pass
+        
+        # Regla 2: Cambia estado puerta B
+        return self.operateDoorB
     
     def rule_4(self):
-        #Regla 3: 
+        #Regla 4: Si existe alerta de Androide, cerrar todas las puertas
         pass
 
     def rule_5(self):
