@@ -288,54 +288,128 @@ class CameraAgent(ap.Agent):
     Definition of the robot agent for the bunker environment.
     """
     
-    def setup(self, grid_size, position=(0, 0), isCarrying=False):
-        self.alert = False
-        
-
-    def see(self, environment, message):  # environment and message are passed in
-        """Updates the robot's perception based on the environment."""
+    def setup(self):
+        """
+        we init with the properties of the camera agent's lol
+        """
+        self.current_detection = None #the last detection result: 0 for human, 1 for nigga Robot
+        self.environment = None #this is the placeholder for unity environment connection
+    
+    def perceive(self, environment, message):
+        """
+        updates the agents perception based on data from unity nahh
+        """
         if message is None:
-            print(f"Agent {self.id}: No message received from Unity.")
-            return  # Handle case where no message is received
-
-        # Directly use the message passed as an argument
-        if len(message) != 1: #Modify eventually
-            print(f"Invalid message from Unity: {message}")
+            print(f"CameraAgent {self.id}: No data received from Unity :'(.")
             return
 
         try:
-            # Parse Unity message
-            self.alert = message
-            
-        except ValueError:
-            print(f"Agent {self.id}: Invalid box amount or message format: {message}")
-            
-            
-    def next(self):
-        """Decides the next action based on the rules and perceptions."""
-        rules = [
-            self.rule_1, self.rule_2, self.rule_3,
-            self.rule_4, self.rule_5, self.rule_6,
-            self.rule_7, self.rule_8, self.rule_9
-        ]
+            #yeah we assume the message is a simple character or object id for now
+            #and simulate a non-deterministc detection 
+            detection_result = random.choice([0, 1])
+            if random.random() < 0.1: #here we simulates a 10% chance of error (for fun)
+                detection_result = 1 - detection_result
+            self.current_detection = detection_result
+            print(f"CameraAgent {self.id}: Detected {'Human' if detection_result == 0 else 'Robot'}.")
+        except Exception as e:
+            print(f"CameraAgent {self.id}: Error processing message: {e}")
+    
+    def decide(self):
+        """
+        well, here our lil bro decide what to do based on the current detection
+        """
+        if self.current_detection is None:
+            return None
 
-        # Example rules and actions
-        for rule in rules:
-            action = rule()
-            if action:
-                return action            
-        return None  # Default action: do nothing
-
-    def action(self, act, environment):
-        """Executes the chosen action."""
-        if act:
-            act(environment)
-
+        if self.current_detection == 0:
+            return self.report_human
+        else:
+            return self.report_robot
+        
+    def act(self, action, environment):
+        """
+        now lil bro execute the chosen action hell nah 
+        """
+        if action:
+            action(environment)
+    
     def step(self, environment):
-        """Main execution step for the agent."""
-        self.see(environment)
-        action = self.next()
-        self.action(action, environment)
+        """
+        the main execution step for the lil cameraMan
+        """
+        #our lil spy simulate receiving a message (here we need replace with unity communication later)
+        simulated_message = "character_data" #placeholder for the actual unity message
+        self.perceive(environment, simulated_message)
+
+        #lil bro decide and act based on perception
+        action = self.decide()
+        self.act(action, environment)
+    
+    #these are the cameraMan-specific actions
+    def report_human(self, environment = None):
+        """
+        lil spy report detection of a Human
+        """
+        print(f"CameraAgent {self.id}: Reporting detection - Human.")
+    
+    def report_robot(self, environment = None):
+        """
+        lil bro report detection of a Human
+        """
+        print(f"CameraAgent {self.id}: Reporting detection - Robot.")
+
+    # """
+    # Definition of the robot agent for the bunker environment.
+    # """
+    
+    # def setup(self, grid_size, position=(0, 0), isCarrying=False):
+    #     self.alert = False
+        
+
+    # def see(self, environment, message):  # environment and message are passed in
+    #     """Updates the robot's perception based on the environment."""
+    #     if message is None:
+    #         print(f"Agent {self.id}: No message received from Unity.")
+    #         return  # Handle case where no message is received
+
+    #     # Directly use the message passed as an argument
+    #     if len(message) != 1: #Modify eventually
+    #         print(f"Invalid message from Unity: {message}")
+    #         return
+
+    #     try:
+    #         # Parse Unity message
+    #         self.alert = message
+            
+    #     except ValueError:
+    #         print(f"Agent {self.id}: Invalid box amount or message format: {message}")
+            
+            
+    # def next(self):
+    #     """Decides the next action based on the rules and perceptions."""
+    #     rules = [
+    #         self.rule_1, self.rule_2, self.rule_3,
+    #         self.rule_4, self.rule_5, self.rule_6,
+    #         self.rule_7, self.rule_8, self.rule_9
+    #     ]
+
+    #     # Example rules and actions
+    #     for rule in rules:
+    #         action = rule()
+    #         if action:
+    #             return action            
+    #     return None  # Default action: do nothing
+
+    # def action(self, act, environment):
+    #     """Executes the chosen action."""
+    #     if act:
+    #         act(environment)
+
+    # def step(self, environment):
+    #     """Main execution step for the agent."""
+    #     self.see(environment)
+    #     action = self.next()
+    #     self.action(action, environment)
 
 
 class BunkerModel(ap.Model):
