@@ -40,9 +40,7 @@ class GuardAgent(ap.Agent):
     def next(self):
         """Decides the next action based on the rules and perceptions."""
         rules = [
-            self.rule_1, self.rule_2, self.rule_3,
-            self.rule_4, self.rule_5, self.rule_6,
-            self.rule_7, self.rule_8, self.rule_9
+            self.rule_1, self.rule_2, self.rule_3
         ]
 
         # Example rules and actions
@@ -67,6 +65,8 @@ class GuardAgent(ap.Agent):
     def orderShot(self, environment=None):
         #Orders drone to shoot current 
         print(f"Ordering Drone to shoot current target")
+        self.droneAlert = 0
+        self.droneState = "f"
     
     def operateDoorA(self, environment):
         #Operate door based on values obtained from Unity
@@ -106,105 +106,74 @@ class GuardAgent(ap.Agent):
         self.alertA = 1
         self.alertB = 1
         self.pathState = "C"
+    
+    def removeLockdown(self, environment=None):
+        self.alertA = 0
+        self.alertB = 0
+        self.pathState = "O"
         
 
     # Actualización de las reglas con acceso correcto a las percepciones
-    def rule_1(self, zone=None):
-        #Regla 1: Cierre total de las instalaciones
-
-        return self.lockdown
-        
+    def rule_1(self):
+        #Regla 1: Cierre total de las instalaciones en caso de recibir alerta de un robot en alguna zona
+        if self.droneAlert == 1:
+            return self.lockdown
         
 
     def rule_2(self):
-        # Regla 1: Cambia estado de puerta A
-        return self.operateDoorA
+        # Regla 2: Abrir las puertas si no se detecta una amenaza por parte del dron y el ambiente se encuentra en lockdown
+        return self.removeLockdown
         
     
     def rule_3(self):
         
-        # Regla 2: Cambia estado puerta B
-        return self.operateDoorB
+        #Si el lugar se encuentra en lockdown y el dron detectó un objetivo, ordenar el tiro
+        return self.orderShot
     
-    def rule_4(self):
-        #Regla 4: Si existe alerta de Androide, cerrar todas las puertas
-        pass
 
-    def rule_5(self):
-        #Regla 3: 
-        pass
-
-    def rule_6(self):
-        #Regla 3: 
-        pass
-
-    def rule_7(self):
-        #Regla 3: 
-        pass
-
-    def rule_8(self):
-        #Regla 3: 
-        pass
-    
-    def rule_9(self):
-        #Regla 3: 
-        pass
-    
 class DroneAgent(ap.Agent):
     """
-    Definition of the drone agent for the bunker environment.
-    Responsibilities:
-    - Patrol rooms
-    - Respond to camera alerts
-    - Eliminate android threats
+    Definition of the robot agent for the bunker environment.
     """
     
     def setup(self):
-        self.state = "PATROL"  # PATROL, PURSUING, ELIMINATING
-        self.current_position = "A"  # A, B (rooms)
-        self.target_detected = False
-        self.target_position = None
-        self.target_eliminated = False
-        self.camera_alert = False
+        pass
+        
 
-    def see(self, environment, message):
-        """Updates the drone's perception based on the environment."""
+    def see(self, environment, message):  # environment and message are passed in
+        """Updates the robot's perception based on the environment."""
         if message is None:
             print(f"Agent {self.id}: No message received from Unity.")
-            return
+            return  # Handle case where no message is received
 
-        # Message format expected: "STATE:POSITION:TARGET:CAMERA_ALERT"
-        # Example: "PATROL:A:0:0" - Patrolling in room A, no target, no camera alert
-        parts = message.split(":")
+        # Directly use the message passed as an argument
 
-        if len(parts) != 4:
+        if len(message) != 1: #Modify eventually
             print(f"Invalid message from Unity: {message}")
             return
 
         try:
-            self.state = parts[0]
-            self.current_position = parts[1]
-            self.target_detected = bool(int(parts[2]))
-            self.camera_alert = bool(int(parts[3]))
+            # Parse Unity message
+            pass
             
         except ValueError:
-            print(f"Agent {self.id}: Invalid values or message format: {message}")
-    
+            print(f"Agent {self.id}: Invalid box amount or message format: {message}")
+            
+            
     def next(self):
         """Decides the next action based on the rules and perceptions."""
         rules = [
-            self.patrol_rule,
-            self.camera_alert_rule,
-            self.target_elimination_rule,
-            self.target_pursuit_rule,
-            self.return_to_patrol_rule
+            self.rule_1, self.rule_2, self.rule_3,
+            self.rule_4, self.rule_5, self.rule_6,
+            self.rule_7, self.rule_8, self.rule_9
         ]
 
+        # Example rules and actions
         for rule in rules:
             action = rule()
             if action:
                 return action            
-        return None
+        return None  # Default action: do nothing
 
     def action(self, act, environment):
         """Executes the chosen action."""
@@ -217,71 +186,17 @@ class DroneAgent(ap.Agent):
         action = self.next()
         self.action(action, environment)
 
-    # Acciones del dron
-    def patrol(self, environment):
-        """Standard patrol routine between rooms"""
-        next_position = "B" if self.current_position == "A" else "A"
-        print(f"Patrolling: Moving to room {next_position}")
-        return f"DRONE_ACTION:PATROL:{next_position}"
+    def relocate(self, environment):
+        #Function to call the drone to a certain position
+        pass
     
-    def pursue_target(self, environment, position=None):
-        """Move towards detected target"""
-        target_pos = position if position else self.target_position
-        print(f"Pursuing target at position {target_pos}")
-        return f"DRONE_ACTION:PURSUE:{target_pos}"
+    def landing(self, environment):
+        #Function to land the drone
+        pass
 
-    def eliminate_target(self, environment):
-        """Eliminate confirmed android target"""
-        print("Eliminating android target")
-        return "DRONE_ACTION:ELIMINATE"
-
-    def recalculate_position(self, environment):
-        """Recalculate position when target moves to different area"""
-        print("Recalculating position to intercept target")
-        return "DRONE_ACTION:RECALCULATE"
-
-    # Reglas del dron
-    def patrol_rule(self):
-        """Rule: Si no hay alertas, continúa patrullando los cuartos"""
-        if (self.state == "PATROL" and 
-            not self.target_detected and 
-            not self.camera_alert):
-            return self.patrol
-        return None
-
-    def camera_alert_rule(self):
-        """Rule: Si recibe una alerta de la cámara, cancelar patrullaje y moverse al objetivo detectado"""
-        if self.camera_alert and self.state != "PURSUING":
-            self.state = "PURSUING"
-            return self.pursue_target
-        return None
-
-    def target_elimination_rule(self):
-        """Rule: Si se confirma que el objetivo es un androide, eliminarlo y enviar confirmación"""
-        if (self.state == "PURSUING" and 
-            self.target_detected and 
-            not self.target_eliminated):
-            return self.eliminate_target
-        return None
-
-    def target_pursuit_rule(self):
-        """Rule: Si se detecta que el androide ya cruzó al siguiente pasillo, recalcular posición"""
-        if (self.state == "PURSUING" and 
-            self.target_detected and 
-            self.current_position != self.target_position):
-            return self.recalculate_position
-        return None
-
-    def return_to_patrol_rule(self):
-        """Rule: Si el androide es eliminado, volver al patrullaje"""
-        if self.target_eliminated and self.state != "PATROL":
-            self.state = "PATROL"
-            self.target_detected = False
-            self.target_eliminated = False
-            self.camera_alert = False
-            return self.patrol
-        return None
-
+    def vigilance(self, environment):
+        #Function to send the drone to its standard routine
+        pass
 
 class CameraAgent(ap.Agent):
     """
@@ -289,127 +204,53 @@ class CameraAgent(ap.Agent):
     """
     
     def setup(self):
-        """
-        we init with the properties of the camera agent's lol
-        """
-        self.current_detection = None #the last detection result: 0 for human, 1 for nigga Robot
-        self.environment = None #this is the placeholder for unity environment connection
-    
-    def perceive(self, environment, message):
-        """
-        updates the agents perception based on data from unity nahh
-        """
+        self.alert = False
+        
+
+    def see(self, environment, message):  # environment and message are passed in
+        """Updates the robot's perception based on the environment."""
         if message is None:
-            print(f"CameraAgent {self.id}: No data received from Unity :'(.")
+            print(f"Agent {self.id}: No message received from Unity.")
+            return  # Handle case where no message is received
+
+        # Directly use the message passed as an argument
+        if len(message) != 1: #Modify eventually
+            print(f"Invalid message from Unity: {message}")
             return
 
         try:
-            #yeah we assume the message is a simple character or object id for now
-            #and simulate a non-deterministc detection 
-            detection_result = random.choice([0, 1])
-            if random.random() < 0.1: #here we simulates a 10% chance of error (for fun)
-                detection_result = 1 - detection_result
-            self.current_detection = detection_result
-            print(f"CameraAgent {self.id}: Detected {'Human' if detection_result == 0 else 'Robot'}.")
-        except Exception as e:
-            print(f"CameraAgent {self.id}: Error processing message: {e}")
-    
-    def decide(self):
-        """
-        well, here our lil bro decide what to do based on the current detection
-        """
-        if self.current_detection is None:
-            return None
+            # Parse Unity message
+            self.alert = message
+            
+        except ValueError:
+            print(f"Agent {self.id}: Invalid box amount or message format: {message}")
+            
+            
+    def next(self):
+        """Decides the next action based on the rules and perceptions."""
+        rules = [
+            self.rule_1, self.rule_2, self.rule_3,
+            self.rule_4, self.rule_5, self.rule_6,
+            self.rule_7, self.rule_8, self.rule_9
+        ]
 
-        if self.current_detection == 0:
-            return self.report_human
-        else:
-            return self.report_robot
-        
-    def act(self, action, environment):
-        """
-        now lil bro execute the chosen action hell nah 
-        """
-        if action:
-            action(environment)
-    
+        # Example rules and actions
+        for rule in rules:
+            action = rule()
+            if action:
+                return action            
+        return None  # Default action: do nothing
+
+    def action(self, act, environment):
+        """Executes the chosen action."""
+        if act:
+            act(environment)
+
     def step(self, environment):
-        """
-        the main execution step for the lil cameraMan
-        """
-        #our lil spy simulate receiving a message (here we need replace with unity communication later)
-        simulated_message = "character_data" #placeholder for the actual unity message
-        self.perceive(environment, simulated_message)
-
-        #lil bro decide and act based on perception
-        action = self.decide()
-        self.act(action, environment)
-    
-    #these are the cameraMan-specific actions
-    def report_human(self, environment = None):
-        """
-        lil spy report detection of a Human
-        """
-        print(f"CameraAgent {self.id}: Reporting detection - Human.")
-    
-    def report_robot(self, environment = None):
-        """
-        lil bro report detection of a Human
-        """
-        print(f"CameraAgent {self.id}: Reporting detection - Robot.")
-
-    # """
-    # Definition of the robot agent for the bunker environment.
-    # """
-    
-    # def setup(self, grid_size, position=(0, 0), isCarrying=False):
-    #     self.alert = False
-        
-
-    # def see(self, environment, message):  # environment and message are passed in
-    #     """Updates the robot's perception based on the environment."""
-    #     if message is None:
-    #         print(f"Agent {self.id}: No message received from Unity.")
-    #         return  # Handle case where no message is received
-
-    #     # Directly use the message passed as an argument
-    #     if len(message) != 1: #Modify eventually
-    #         print(f"Invalid message from Unity: {message}")
-    #         return
-
-    #     try:
-    #         # Parse Unity message
-    #         self.alert = message
-            
-    #     except ValueError:
-    #         print(f"Agent {self.id}: Invalid box amount or message format: {message}")
-            
-            
-    # def next(self):
-    #     """Decides the next action based on the rules and perceptions."""
-    #     rules = [
-    #         self.rule_1, self.rule_2, self.rule_3,
-    #         self.rule_4, self.rule_5, self.rule_6,
-    #         self.rule_7, self.rule_8, self.rule_9
-    #     ]
-
-    #     # Example rules and actions
-    #     for rule in rules:
-    #         action = rule()
-    #         if action:
-    #             return action            
-    #     return None  # Default action: do nothing
-
-    # def action(self, act, environment):
-    #     """Executes the chosen action."""
-    #     if act:
-    #         act(environment)
-
-    # def step(self, environment):
-    #     """Main execution step for the agent."""
-    #     self.see(environment)
-    #     action = self.next()
-    #     self.action(action, environment)
+        """Main execution step for the agent."""
+        self.see(environment)
+        action = self.next()
+        self.action(action, environment)
 
 
 class BunkerModel(ap.Model):
