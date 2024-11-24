@@ -40,9 +40,7 @@ class GuardAgent(ap.Agent):
     def next(self):
         """Decides the next action based on the rules and perceptions."""
         rules = [
-            self.rule_1, self.rule_2, self.rule_3,
-            self.rule_4, self.rule_5, self.rule_6,
-            self.rule_7, self.rule_8, self.rule_9
+            self.rule_1, self.rule_2, self.rule_3
         ]
 
         # Example rules and actions
@@ -67,6 +65,8 @@ class GuardAgent(ap.Agent):
     def orderShot(self, environment=None):
         #Orders drone to shoot current 
         print(f"Ordering Drone to shoot current target")
+        self.droneAlert = 0
+        self.droneState = "f"
     
     def operateDoorA(self, environment):
         #Operate door based on values obtained from Unity
@@ -106,51 +106,30 @@ class GuardAgent(ap.Agent):
         self.alertA = 1
         self.alertB = 1
         self.pathState = "C"
+    
+    def removeLockdown(self, environment=None):
+        self.alertA = 0
+        self.alertB = 0
+        self.pathState = "O"
         
 
     # Actualización de las reglas con acceso correcto a las percepciones
-    def rule_1(self, zone=None):
-        #Regla 1: Cierre total de las instalaciones
-
-        return self.lockdown
-        
+    def rule_1(self):
+        #Regla 1: Cierre total de las instalaciones en caso de recibir alerta de un robot en alguna zona
+        if self.droneAlert == 1:
+            return self.lockdown
         
 
     def rule_2(self):
-        # Regla 1: Cambia estado de puerta A
-        return self.operateDoorA
+        # Regla 2: Abrir las puertas si no se detecta una amenaza por parte del dron y el ambiente se encuentra en lockdown
+        return self.removeLockdown
         
     
     def rule_3(self):
         
-        # Regla 2: Cambia estado puerta B
-        return self.operateDoorB
+        #Si el lugar se encuentra en lockdown y el dron detectó un objetivo, ordenar el tiro
+        return self.orderShot
     
-    def rule_4(self):
-        #Regla 4: Si existe alerta de Androide, cerrar todas las puertas
-        pass
-
-    def rule_5(self):
-        #Regla 3: 
-        pass
-
-    def rule_6(self):
-        #Regla 3: 
-        pass
-
-    def rule_7(self):
-        #Regla 3: 
-        pass
-
-    def rule_8(self):
-        #Regla 3: 
-        pass
-    
-    def rule_9(self):
-        #Regla 3: 
-        pass
-    
-
 
 class DroneAgent(ap.Agent):
     """
@@ -227,7 +206,7 @@ class CameraAgent(ap.Agent):
     Definition of the robot agent for the bunker environment.
     """
     
-    def setup(self, grid_size, position=(0, 0), isCarrying=False):
+    def setup(self):
         self.alert = False
         
 
