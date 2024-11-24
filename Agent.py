@@ -150,51 +150,61 @@ class GuardAgent(ap.Agent):
         #Regla 3: 
         pass
     
-
-
 class DroneAgent(ap.Agent):
     """
-    Definition of the robot agent for the bunker environment.
+    Definition of the drone agent for the bunker environment.
+    Responsibilities:
+    - Patrol rooms
+    - Respond to camera alerts
+    - Eliminate android threats
     """
     
     def setup(self):
-        pass
-        
+        self.state = "PATROL"  # PATROL, PURSUING, ELIMINATING
+        self.current_position = "A"  # A, B (rooms)
+        self.target_detected = False
+        self.target_position = None
+        self.target_eliminated = False
+        self.camera_alert = False
 
-    def see(self, environment, message):  # environment and message are passed in
-        """Updates the robot's perception based on the environment."""
+    def see(self, environment, message):
+        """Updates the drone's perception based on the environment."""
         if message is None:
             print(f"Agent {self.id}: No message received from Unity.")
-            return  # Handle case where no message is received
+            return
 
-        # Directly use the message passed as an argument
+        # Message format expected: "STATE:POSITION:TARGET:CAMERA_ALERT"
+        # Example: "PATROL:A:0:0" - Patrolling in room A, no target, no camera alert
+        parts = message.split(":")
 
-        if len(message) != 1: #Modify eventually
+        if len(parts) != 4:
             print(f"Invalid message from Unity: {message}")
             return
 
         try:
-            # Parse Unity message
-            pass
+            self.state = parts[0]
+            self.current_position = parts[1]
+            self.target_detected = bool(int(parts[2]))
+            self.camera_alert = bool(int(parts[3]))
             
         except ValueError:
-            print(f"Agent {self.id}: Invalid box amount or message format: {message}")
-            
-            
+            print(f"Agent {self.id}: Invalid values or message format: {message}")
+    
     def next(self):
         """Decides the next action based on the rules and perceptions."""
         rules = [
-            self.rule_1, self.rule_2, self.rule_3,
-            self.rule_4, self.rule_5, self.rule_6,
-            self.rule_7, self.rule_8, self.rule_9
+            self.patrol_rule,
+            self.camera_alert_rule,
+            self.target_elimination_rule,
+            self.target_pursuit_rule,
+            self.return_to_patrol_rule
         ]
 
-        # Example rules and actions
         for rule in rules:
             action = rule()
             if action:
                 return action            
-        return None  # Default action: do nothing
+        return None
 
     def action(self, act, environment):
         """Executes the chosen action."""
@@ -207,19 +217,70 @@ class DroneAgent(ap.Agent):
         action = self.next()
         self.action(action, environment)
 
-    def relocate(self, environment):
-        #Function to call the drone to a certain position
-        pass
+    # Acciones del dron
+    def patrol(self, environment):
+        """Standard patrol routine between rooms"""
+        next_position = "B" if self.current_position == "A" else "A"
+        print(f"Patrolling: Moving to room {next_position}")
+        return f"DRONE_ACTION:PATROL:{next_position}"
     
-    def landing(self, environment):
-        #Function to land the drone
-        pass
+    def pursue_target(self, environment, position=None):
+        """Move towards detected target"""
+        target_pos = position if position else self.target_position
+        print(f"Pursuing target at position {target_pos}")
+        return f"DRONE_ACTION:PURSUE:{target_pos}"
 
-    def vigilance(self, environment):
-        #Function to send the drone to its standard routine
-        pass
+    def eliminate_target(self, environment):
+        """Eliminate confirmed android target"""
+        print("Eliminating android target")
+        return "DRONE_ACTION:ELIMINATE"
 
+    def recalculate_position(self, environment):
+        """Recalculate position when target moves to different area"""
+        print("Recalculating position to intercept target")
+        return "DRONE_ACTION:RECALCULATE"
 
+    # Reglas del dron
+    def patrol_rule(self):
+        """Rule: Si no hay alertas, continúa patrullando los cuartos"""
+        if (self.state == "PATROL" and 
+            not self.target_detected and 
+            not self.camera_alert):
+            return self.patrol
+        return None
+
+    def camera_alert_rule(self):
+        """Rule: Si recibe una alerta de la cámara, cancelar patrullaje y moverse al objetivo detectado"""
+        if self.camera_alert and self.state != "PURSUING":
+            self.state = "PURSUING"
+            return self.pursue_target
+        return None
+
+    def target_elimination_rule(self):
+        """Rule: Si se confirma que el objetivo es un androide, eliminarlo y enviar confirmación"""
+        if (self.state == "PURSUING" and 
+            self.target_detected and 
+            not self.target_eliminated):
+            return self.eliminate_target
+        return None
+
+    def target_pursuit_rule(self):
+        """Rule: Si se detecta que el androide ya cruzó al siguiente pasillo, recalcular posición"""
+        if (self.state == "PURSUING" and 
+            self.target_detected and 
+            self.current_position != self.target_position):
+            return self.recalculate_position
+        return None
+
+    def return_to_patrol_rule(self):
+        """Rule: Si el androide es eliminado, volver al patrullaje"""
+        if self.target_eliminated and self.state != "PATROL":
+            self.state = "PATROL"
+            self.target_detected = False
+            self.target_eliminated = False
+            self.camera_alert = False
+            return self.patrol
+        return None
 
 
 class CameraAgent(ap.Agent):
