@@ -65,10 +65,12 @@ class GuardAgent(ap.Agent):
     def orderShot(self, environment=None):
         #Orders drone to shoot current 
         print(f"Ordering Drone to shoot current target")
+        
         self.droneAlert = 0
         self.droneState = "f"
     
     def operateDoorA(self, environment):
+
         #Operate door based on values obtained from Unity
         state = self.alertA
         if state == 0:
@@ -91,14 +93,20 @@ class GuardAgent(ap.Agent):
         #Action is defined from self.droneState
         #Call drone to certain zone
         action = self.droneState
+        drone = self.model.drone.random().to_list()[0]
+
 
         if action == "a" or action == "b":
-            print(f"Instructing drone to fly to: {action}")
+            drone.state = "PURSUING"
+            
+            print(f"Instructing drone to PURSUE")
 
         elif action == "f":
+            drone.state = "PATROL"
             print(f"Commanding drone to patrol")
 
         elif action == "l":
+            drone.state = "LAND"
             print(f"Landing drone in current position")
 
 
@@ -158,7 +166,7 @@ class DroneAgent(ap.Agent):
         # Example: "PATROL:A:0:0" - Patrolling in room A, no target, no camera alert
         parts = message.split(":")
 
-        if len(parts) != 4:
+        if len(parts) != 5:
             print(f"Invalid message from Unity: {message}")
             return
 
@@ -166,7 +174,8 @@ class DroneAgent(ap.Agent):
             self.state = parts[0]
             self.current_position = parts[1]
             self.target_detected = bool(int(parts[2]))
-            self.camera_alert = bool(int(parts[3]))
+            self.cameraA_alert = bool(int(parts[3]))
+            self.cameraB_alert = bool(int(parts[4]))
             
         except ValueError:
             print(f"Agent {self.id}: Invalid values or message format: {message}")
@@ -200,6 +209,8 @@ class DroneAgent(ap.Agent):
 
     # Acciones del dron
     def patrol(self, environment):
+        
+
         """Standard patrol routine between rooms"""
         next_position = "B" if self.current_position == "A" else "A"
         print(f"Patrolling: Moving to room {next_position}")
@@ -394,11 +405,15 @@ class CameraAgent(ap.Agent):
 
 class BunkerModel(ap.Model):
     def setup(self):
-        self.grid_size = (self.p.size, self.p.size) 
-        self.robots = ap.AgentList(self, self.p.agent_n, RobotAgent, grid_size=self.grid_size)
-        self.boxes = [] 
-        self.walls = []
-        self.message_log = {}  # Stores messages for each robot
+        
+        self.cameraA = ap.AgentList(self, self.p.cameraA, CameraAgent)
+        self.cameraB = ap.AgentList(self, self.p.cameraB, CameraAgent)
+        self.guard = ap.AgentList(self, self.p.guard, GuardAgent)
+        self.drone = ap.AgentList(self, self.p.drone, DroneAgent)
+
+
+
+          # Stores messages for each robot
         
         # Initialize boxes
         
@@ -406,15 +421,16 @@ class BunkerModel(ap.Model):
 
     def step(self):
         agent_messages = []
-        for robot in self.robots:
-            message = self.receive_message(robot.id)
-            robot.see(self, message)
-            action = robot.next()
-            if action: # Check if an action was chosen
-                instruction = self.interpret_action(action) #Convert action to instruction
-                agent_messages.append((robot.id, instruction))
+        
+        
+        message = self.receive_message(self.guard.id)
+        self.guard.see(self, message)
+        action = self.guard.next()
+        if action: # Check if an action was chosen
+            instruction = self.interpret_action(action) #Convert action to instruction
+            agent_messages.append((robot.id, instruction))
 
-                robot.action(action, self)
+            robot.action(action, self)
         
         self.send_messages_to_unity(agent_messages)
     
@@ -436,8 +452,10 @@ class BunkerModel(ap.Model):
 
 parameters = {
     'steps': 20,
-    'size': 10,
-    'agent_n': 5
+    'cameraA': 1,
+    'cameraB': 1,
+    'guard': 1,
+    'drone': 1
 }
 
 model = BunkerModel(parameters)
