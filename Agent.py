@@ -412,13 +412,6 @@ class BunkerModel(ap.Model):
         self.drone = ap.AgentList(self, self.p.drone, DroneAgent)
 
 
-
-          # Stores messages for each robot
-        
-        # Initialize boxes
-        
-        # Initialize horizontal wall
-
     def step(self):
         agent_messages = []
         
