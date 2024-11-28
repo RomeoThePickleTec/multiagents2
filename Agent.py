@@ -1,6 +1,14 @@
 import agentpy as ap
 from owlready2 import *
 import random
+import socket
+#Socket que permite la conexión entre Unity y Python
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind(('127.0.0.1', 6969))
+server_socket.listen(1)
+conn, addr = server_socket.accept()
+print(f"Connected to address: {addr}")
+
 
 class GuardAgent(ap.Agent):
     """
@@ -130,7 +138,8 @@ class GuardAgent(ap.Agent):
 
     def rule_2(self):
         # Regla 2: Abrir las puertas si no se detecta una amenaza por parte del dron y el ambiente se encuentra en lockdown
-        return self.removeLockdown
+        return self.removeL
+ockdown
         
     
     def rule_3(self):
@@ -283,7 +292,7 @@ class CameraAgent(ap.Agent):
         we init with the properties of the camera agent's lol
         """
         self.current_detection = None #the last detection result: 0 for human, 1 for nigga Robot
-        self.environment = None #this is the placeholder for unity environment connection
+        
     
     def perceive(self, environment, message):
         """
@@ -416,8 +425,18 @@ class BunkerModel(ap.Model):
         agent_messages = []
         
         
-        message = self.receive_message(self.guard.id)
-        self.guard.see(self, message)
+        camA = self.receive_message()
+        self.cameraA.see(camA)
+        camB = self.receive_message()
+        self.cameraB.see(camB)
+        grd = self.receive_message()
+        self.guard.see(grd)
+
+
+        ##################################################################################################
+        #This part has not been corrected still
+        ##################################################################################################
+
         action = self.guard.next()
         if action: # Check if an action was chosen
             instruction = self.interpret_action(action) #Convert action to instruction
@@ -432,15 +451,19 @@ class BunkerModel(ap.Model):
         pass
     
 
-    def receive_message(self, robot_id):
+    def receive_message(self):
         """ Placeholder for receiving messages from Unity via sockets. """
-        # Replace this with your actual socket communication code.
-        example_messages = [
-            "n False E E E E 0",
-            "s True B E E E 2",
-            "e False R E W E 1"
-        ]
-        return random.choice(example_messages)
+        message = b''
+        mssglen = conn.recv(10)
+        mssg = int(mssglen.decode('utf-8'))
+        while True:
+            packet = conn.recv(1024)
+            if not packet:
+                break
+            message += packet
+            if b'\0' in message:  # Delimiter is null byte
+                break
+        return message
 
 
 parameters = {
