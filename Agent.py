@@ -2,7 +2,7 @@ import agentpy as ap
 from owlready2 import *
 import random
 import socket
-import torch
+from ultralytics import YOLO
 
 
 
@@ -304,6 +304,7 @@ class CameraAgent(ap.Agent):
             #and simulate a non-deterministc detection 
             
             self.currentImage = message
+            self.results = self.model.vision(self.currentImage)[0].names[0]
             
         except Exception as e:
             print(f"CameraAgent {self.id}: Error processing message: {e}")
@@ -421,9 +422,9 @@ class BunkerModel(ap.Model):
         conn, addr = server_socket.accept()
         print(f"Connected to address: {addr}")
 
-        self.vision = MyModel()  # Define the model architecture
-        self.vision.load_state_dict(torch.load('visionModel.pt'))
-        self.vision.eval()  # Set the model to evaluation mode
+        self.vision = YOLO('visionModel.pt')
+        
+        
 
 
     def step(self):
