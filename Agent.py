@@ -2,12 +2,10 @@ import agentpy as ap
 from owlready2 import *
 import random
 import socket
-#Socket que permite la conexión entre Unity y Python
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('127.0.0.1', 6969))
-server_socket.listen(1)
-conn, addr = server_socket.accept()
-print(f"Connected to address: {addr}")
+import torch
+
+
+
 
 
 class GuardAgent(ap.Agent):
@@ -138,8 +136,7 @@ class GuardAgent(ap.Agent):
 
     def rule_2(self):
         # Regla 2: Abrir las puertas si no se detecta una amenaza por parte del dron y el ambiente se encuentra en lockdown
-        return self.removeL
-ockdown
+        return self.removeLockdown
         
     
     def rule_3(self):
@@ -294,7 +291,7 @@ class CameraAgent(ap.Agent):
         self.current_detection = None #the last detection result: 0 for human, 1 for nigga Robot
         
     
-    def perceive(self, environment, message):
+    def see(self, environment, message):
         """
         updates the agents perception based on data from unity nahh
         """
@@ -305,11 +302,9 @@ class CameraAgent(ap.Agent):
         try:
             #yeah we assume the message is a simple character or object id for now
             #and simulate a non-deterministc detection 
-            detection_result = random.choice([0, 1])
-            if random.random() < 0.1: #here we simulates a 10% chance of error (for fun)
-                detection_result = 1 - detection_result
-            self.current_detection = detection_result
-            print(f"CameraAgent {self.id}: Detected {'Human' if detection_result == 0 else 'Robot'}.")
+            
+            self.currentImage = message
+            
         except Exception as e:
             print(f"CameraAgent {self.id}: Error processing message: {e}")
     
@@ -325,12 +320,12 @@ class CameraAgent(ap.Agent):
         else:
             return self.report_robot
         
-    def act(self, action, environment):
+    def action(self, act, environment):
         """
         now lil bro execute the chosen action hell nah 
         """
-        if action:
-            action(environment)
+        if act:
+            act(environment)
     
     def step(self, environment):
         """
@@ -419,6 +414,16 @@ class BunkerModel(ap.Model):
         self.cameraB = ap.AgentList(self, self.p.cameraB, CameraAgent)
         self.guard = ap.AgentList(self, self.p.guard, GuardAgent)
         self.drone = ap.AgentList(self, self.p.drone, DroneAgent)
+        #Socket que permite la conexión entre Unity y Python
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind(('127.0.0.1', 6969))
+        server_socket.listen(1)
+        conn, addr = server_socket.accept()
+        print(f"Connected to address: {addr}")
+
+        self.vision = MyModel()  # Define the model architecture
+        self.vision.load_state_dict(torch.load('visionModel.pt'))
+        self.vision.eval()  # Set the model to evaluation mode
 
 
     def step(self):
@@ -467,7 +472,7 @@ class BunkerModel(ap.Model):
 
 
 parameters = {
-    'steps': 20,
+    'steps': 30,
     'cameraA': 1,
     'cameraB': 1,
     'guard': 1,
@@ -476,7 +481,7 @@ parameters = {
 
 model = BunkerModel(parameters)
 model.run()  # Ejecuta la simulación
-
+conn.close()
 
 # If the ontology exists, then destroy it
 #if onto is not None:
