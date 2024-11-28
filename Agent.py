@@ -5,17 +5,14 @@ import socket
 from ultralytics import YOLO
 
 
-
-
-
 class GuardAgent(ap.Agent):
     """
     Definition of the robot agent for the bunker environment.
     """
     
     def setup(self):
-        self.alertA = 0 #Puerta abierta (0)/ Puerta cerrada (1)
-        self.alertB = 0 #Puerta abierta (0)/ Puerta cerrada (1)
+        self.alertA = 0 #Alerta de cámara A
+        self.alertB = 0 #Alerta de cámara B
         self.droneAlert = 0 #Dron no ha visto algo (0)/Dron vio algo (1)
         self.droneState = "f" #f: flying, a: está en A, b: está en B, l: está aterrizado
         self.pathState = "O" #O/C: Open/Close        
@@ -168,20 +165,15 @@ class DroneAgent(ap.Agent):
             print(f"Agent {self.id}: No message received from Unity.")
             return
 
-        # Message format expected: "STATE:POSITION:TARGET:CAMERA_ALERT"
-        # Example: "PATROL:A:0:0" - Patrolling in room A, no target, no camera alert
-        parts = message.split(":")
-
-        if len(parts) != 5:
-            print(f"Invalid message from Unity: {message}")
-            return
+        
 
         try:
-            self.state = parts[0]
-            self.current_position = parts[1]
-            self.target_detected = bool(int(parts[2]))
-            self.cameraA_alert = bool(int(parts[3]))
-            self.cameraB_alert = bool(int(parts[4]))
+            self.currentImage = message
+            with open(f"drone.jpg", "wb") as file:
+                file.write(message)
+            #Guardar la imagen con el nombre del dron
+            self.androide = float(self.model.vision(f"drone.jpg")[0].probs[0])
+            self.human = float(self.model.vision(f"drone.jpg")[0].probs[1])
             
         except ValueError:
             print(f"Agent {self.id}: Invalid values or message format: {message}")
@@ -215,8 +207,6 @@ class DroneAgent(ap.Agent):
 
     # Acciones del dron
     def patrol(self, environment):
-        
-
         """Standard patrol routine between rooms"""
         next_position = "B" if self.current_position == "A" else "A"
         print(f"Patrolling: Moving to room {next_position}")
@@ -291,7 +281,7 @@ class CameraAgent(ap.Agent):
         self.current_detection = None #the last detection result: 0 for human, 1 for nigga Robot
         
     
-    def see(self, environment, message):
+    def see(self, environment, message, id):
         """
         updates the agents perception based on data from unity nahh
         """
@@ -304,8 +294,13 @@ class CameraAgent(ap.Agent):
             #and simulate a non-deterministc detection 
             
             self.currentImage = message
-            self.results = self.model.vision(self.currentImage)[0].names[0]
+            with open(f"camera_{id}.jpg", "wb") as file:
+                file.write(message)
+            #Guardar la imagen con el nombre de la Cámara
+            self.androide = float(self.model.vision(f"camera_{id}.jpg")[0].probs[0])
+            self.human = float(self.model.vision(f"camera_{id}.jpg")[0].probs[1])
             
+           
         except Exception as e:
             print(f"CameraAgent {self.id}: Error processing message: {e}")
     
@@ -432,11 +427,13 @@ class BunkerModel(ap.Model):
         
         
         camA = self.receive_message()
-        self.cameraA.see(camA)
+        self.cameraA.see(camA, "A")
         camB = self.receive_message()
-        self.cameraB.see(camB)
+        self.cameraB.see(camB, "B")
         grd = self.receive_message()
         self.guard.see(grd)
+        drn = self.receive_message()
+        self.drone.see(drn)
 
 
         ##################################################################################################
