@@ -147,7 +147,11 @@ class DroneAgent(ap.Agent):
         self.alert = False
         self.androide = 0
         self.human = 0
-
+        
+        self.target_detected = False
+        self.target_eliminated = False
+        self.camera_alert = False
+        self.target_position = None
 
     def see(self, environment, message):
         """Updates the drone's perception based on the environment."""
@@ -223,6 +227,11 @@ class DroneAgent(ap.Agent):
             not self.camera_alert):
             return self.patrol
         return None
+    
+    def pursue_target(self, environment): 
+        """Move towards detected target"""
+        print(f"Pursuing target at position {self.target_position}")
+        return f"DRONE_ACTION:PURSUE:{self.target_position}"
 
     def camera_alert_rule(self):
         """Rule: Si recibe una alerta de la cámara, cancelar patrullaje y moverse al objetivo detectado"""
@@ -266,6 +275,7 @@ class CameraAgent(ap.Agent):
         we init with the properties of the camera agent's lol
         """
         self.current_detection = None #the last detection result: 0 for human, 1 for nigga Robot
+        self.alert = 0 
         
     
     def see(self, environment, message, id):
@@ -292,17 +302,11 @@ class CameraAgent(ap.Agent):
             print(f"CameraAgent {self.id}: Error processing message: {e}")
     
     def next(self):
-        """
-        well, here our lil bro decide what to do based on the current detection
-        """
-        rules = [rule_1, rule_2]
-        if self.current_detection is None:
-            return None
-
-        if self.current_detection == 0:
-            return self.report_human
+        """Decides the next action based on the current detection."""
+        if self.androide > self.human:
+            return self.report_robot  # Report robot if android probability is higher
         else:
-            return self.report_robot
+            return self.report_human  # Report human otherwise
         
     def action(self, act, environment):
         """
@@ -428,38 +432,69 @@ class BunkerModel(ap.Model):
         print(f"Connected to address: {addr}")
 
         self.vision = YOLO('visionModel.pt')
+        self.door_a_state = 'open'  # Initial state of door A
+        self.door_b_state = 'open'  # Initial state of door B
         
         
-
-
     def step(self):
-        agent_messages = []
-        
-        
-        camA = self.receive_message()
-        self.cameraA.see(camA, "A")
-        camB = self.receive_message()
-        self.cameraB.see(camB, "B")
-        grd = self.receive_message()
-        self.guard.see(grd)
-        drn = self.receive_message()
-        self.drone.see(drn)
+        # Receive images and process them
+        cam_a_img = self.receive_message(self.connA)
+        cam_b_img = self.receive_message(self.connB)
+        drone_img = self.receive_message(self.connD)  # Assuming drone sends image
+
+        # Update camera and drone perceptions
+        self.cameraA.see(cam_a_img, "A")
+        self.cameraB.see(cam_b_img, "B")
+        self.drone.see(drone_img, "D")  # Drone needs image for detection
 
 
-        ##################################################################################################
-        #This part has not been corrected still
-        ##################################################################################################
+        # Guard decision-making based on camera/drone alerts
+        guard_actions = self.guard.next()
+        if guard_actions:
+            for action in guard_actions:  # Allow multiple actions
+                self.interpret_action(action)
 
-        action = self.guard.next()
-        if action: # Check if an action was chosen
-            instruction = self.interpret_action(action) #Convert action to instruction
-            agent_messages.append((guard.id, instruction))
+        # Drone actions
+        drone_action = self.drone.next()
+        if drone_action:
+             self.interpret_drone_action(drone_action) #Interpret and send to unity
 
-            robot.action(action, self)
-        
-        self.send_messages_to_unity(agent_messages)
+    def interpret_action(self, action):
+        guard = self.guard[0] # Access the first (and only) guard agent
+        if action == guard.lockdown:
+            self.door_a_state = 'closed'
+            self.door_b_state = 'closed'
+            self.send_messages_to_unity(self.connG, f"DOOR_A:CLOSE")  # Send to Unity
+            self.send_messages_to_unity(self.connG, f"DOOR_B:CLOSE")
+        elif action == guard.removeLockdown:
+            self.door_a_state = 'open'
+            self.door_b_state = 'open'
+            self.send_messages_to_unity(self.connG, f"DOOR_A:OPEN")
+            self.send_messages_to_unity(self.connG, f"DOOR_B:OPEN")
+        elif action == guard.orderShot:
+            self.send_messages_to_unity(self.connD, "SHOOT")  # Tell drone to shoot
+            guard.droneAlert = 0  # Reset drone alert after shooting
+        elif action == guard.callDrone:
+            if guard.droneState == "a":
+                self.send_messages_to_unity(self.connD, "GO_TO:A")  # Drone to Area A
+            elif guard.droneState == "b":
+                self.send_messages_to_unity(self.connD, "GO_TO:B")  # Drone to Area B
+            elif guard.droneState == "l":
+                self.send_messages_to_unity(self.connD, "LAND")
+            elif guard.droneState == "f":
+                self.send_messages_to_unity(self.connD, "PATROL")
+
+    def interpret_drone_action(self, action):
+        drone = self.drone[0]
+        if action == drone.patrol:
+            self.send_messages_to_unity(self.connD, "PATROL")
+        elif action == drone.pursue_target:  # Define pursue_target action in DroneAgent
+             self.send_messages_to_unity(self.connD, f"PURSUE:{drone.target_position}")
+        elif action == drone.eliminate_target:
+            self.send_messages_to_unity(self.connD, "ELIMINATE")
+            drone.target_eliminated = True # Set to true after eliminating
     
-    def send_messages_to_unity(self, messages):
+    def send_messages_to_unitys_to_unity(self, messages):
         """ Sends messages to Unity (replace with actual socket communication). """
         pass
     
