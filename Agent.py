@@ -14,28 +14,18 @@ class GuardAgent(ap.Agent):
         self.alertA = 0 #Alerta de cámara A
         self.alertB = 0 #Alerta de cámara B
         self.droneAlert = 0 #Dron no ha visto algo (0)/Dron vio algo (1)
-        self.droneState = "f" #f: flying, a: está en A, b: está en B, l: está aterrizado
-        self.pathState = "O" #O/C: Open/Close        
+        self.droneState = "l" #f: flying, a: se dirige a A, b: se dirige a B, l: está aterrizado
+        self.dronePos = "l"  #p: patrullando, a: está en a, b: está en b, l: está aterrizado        
 
     def see(self, environment, message):  # environment and message are passed in
-        """Updates the robot's perception based on the environment."""
-        if message is None:
-            print(f"Agent {self.id}: No message received from Unity.")
-            return  # Handle case where no message is received
-        partes = message.split()
-
-        # Directly use the message passed as an argument
-        if len(partes) != 5:
-            print(f"Invalid message from Unity: {message}")
-            return
 
         try:
             # Parse Unity message
-            self.alertA = partes[0]
-            self.alertB = partes[1]
-            self.droneAlert = partes[2]
-            self.droneState = partes[3]
-            self.pathState = partes[4]
+            self.alertA = self.model.cameraA.alert
+            self.alertB = self.model.cameraB.alert
+            self.droneAlert = self.model.drone.alert
+            self.droneState = self.model.drone.state
+
 
         except ValueError:
             print(f"Agent {self.id}: Invalid values or message format: {message}")
@@ -152,20 +142,18 @@ class DroneAgent(ap.Agent):
     """
     
     def setup(self):
-        self.state = "PATROL"  # PATROL, PURSUING, ELIMINATING
-        self.current_position = "A"  # A, B (rooms)
-        self.target_detected = False
-        self.target_position = None
-        self.target_eliminated = False
-        self.camera_alert = False
+        self.state = "l"  #f: flying, a: se dirige a A, b: se dirige a B, l: está aterrizado
+        self.current_position = "l"  # a, b (rooms), p, l
+        self.alert = False
+        self.androide = 0
+        self.human = 0
+
 
     def see(self, environment, message):
         """Updates the drone's perception based on the environment."""
         if message is None:
             print(f"Agent {self.id}: No message received from Unity.")
             return
-
-        
 
         try:
             self.currentImage = message
@@ -206,13 +194,12 @@ class DroneAgent(ap.Agent):
         self.action(action, environment)
 
     # Acciones del dron
-    def patrol(self, environment):
+    def attendCall(self, environment):
         """Standard patrol routine between rooms"""
-        next_position = "B" if self.current_position == "A" else "A"
-        print(f"Patrolling: Moving to room {next_position}")
+        self.state
         return f"DRONE_ACTION:PATROL:{next_position}"
     
-    def pursue_target(self, environment, position=None):
+    def patrol(self, environment, position=None):
         """Move towards detected target"""
         target_pos = position if position else self.target_position
         print(f"Pursuing target at position {target_pos}")
@@ -304,10 +291,11 @@ class CameraAgent(ap.Agent):
         except Exception as e:
             print(f"CameraAgent {self.id}: Error processing message: {e}")
     
-    def decide(self):
+    def next(self):
         """
         well, here our lil bro decide what to do based on the current detection
         """
+        rules = [rule_1, rule_2]
         if self.current_detection is None:
             return None
 
@@ -343,11 +331,13 @@ class CameraAgent(ap.Agent):
         print(f"CameraAgent {self.id}: Reporting detection - Human.")
     
     def report_robot(self, environment = None):
-        """
-        lil bro report detection of a Human
-        """
+        self.alert = 1
         print(f"CameraAgent {self.id}: Reporting detection - Robot.")
 
+    def rule_1(self):
+        if self.human > self.androide:
+            return report_robot
+        
     # """
     # Definition of the robot agent for the bunker environment.
     # """
@@ -410,11 +400,31 @@ class BunkerModel(ap.Model):
         self.cameraB = ap.AgentList(self, self.p.cameraB, CameraAgent)
         self.guard = ap.AgentList(self, self.p.guard, GuardAgent)
         self.drone = ap.AgentList(self, self.p.drone, DroneAgent)
-        #Socket que permite la conexión entre Unity y Python
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind(('127.0.0.1', 6969))
-        server_socket.listen(1)
-        conn, addr = server_socket.accept()
+        #Socket de cámara A
+        sockA = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sockA.bind(('127.0.0.1', 6969))
+        sockA.listen(1)
+        
+        #Socket cámara B
+        sockB = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sockB.bind(('127.0.0.1', 6970))
+        sockB.listen(1)
+
+        #Socket Guardia
+        sockG = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sockG.bind(('127.0.0.1', 6971))
+        sockG.listen(1)
+
+        #Socket Dron
+        sockD = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sockD.bind(('127.0.0.1', 6971))
+        sockD.listen(1)
+
+        self.connA, self.addrA = sockA.accept()
+        self.connB, self.addrB = sockB.accept()
+        self.connG, self.addrG = sockG.accept()
+        self.connD, self.addrD = sockD.accept()
+
         print(f"Connected to address: {addr}")
 
         self.vision = YOLO('visionModel.pt')
@@ -443,7 +453,7 @@ class BunkerModel(ap.Model):
         action = self.guard.next()
         if action: # Check if an action was chosen
             instruction = self.interpret_action(action) #Convert action to instruction
-            agent_messages.append((robot.id, instruction))
+            agent_messages.append((guard.id, instruction))
 
             robot.action(action, self)
         
